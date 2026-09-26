@@ -1,11 +1,15 @@
 /**
  * Sidebar-first navigation.
  *
- * true  - the sidebar is the primary way to move between sessions, and the
- *         titlebar tab strip is hidden. Session history lives in one place.
- * false - upstream behaviour: tab strip on top, sidebar collapsed by default.
+ * CURRENTLY FALSE, deliberately.
  *
- * Kept as one constant so this is a one-line revert, and so the tab strip
- * component itself stays untouched (cheaper rebases against upstream).
+ * The new design (settings.general.newLayoutDesigns, which is ON for this user)
+ * renders pages/layout-new.tsx - Titlebar + main + DebugBar and NOTHING ELSE.
+ * It has no sidebar. SidebarContent, and therefore the Code/Chat ModeSwitch,
+ * only exist in the legacy pages/layout.tsx.
+ *
+ * So hiding the tab strip here removes the only way to move between sessions.
+ * Turning this on requires first BUILDING a sidebar for the new layout; it is
+ * not a matter of hiding the strip.
  */
-export const SIDEBAR_NAV = true
+export const SIDEBAR_NAV = false
