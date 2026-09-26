@@ -1,5 +1,7 @@
 import { createMemo, For, Show, type JSX } from "solid-js"
-import { useLocation, useNavigate } from "@solidjs/router"
+import { useLocation } from "@solidjs/router"
+import { useLayout } from "@/context/layout"
+import { useServer } from "@/context/server"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { tabHref, tabKey, useTabs, type Tab } from "@/context/tabs"
@@ -45,8 +47,18 @@ function ModeSwitch(): JSX.Element {
 
 export function LayoutNewSidebar(): JSX.Element {
   const tabs = useTabs()
-  const navigate = useNavigate()
+  const layout = useLayout()
+  const server = useServer()
   const location = useLocation()
+
+  // navigate("/new-session") lands on Home, not a composer. A new session is a
+  // DRAFT: tabs.newDraft creates it, registers the tab and navigates - the same
+  // call the titlebar's "+" makes.
+  const newSession = () => {
+    const project = layout.projects.list()[0]
+    if (!project) return
+    void tabs.newDraft({ server: server.key, directory: project.worktree }, "")
+  }
 
   // A draft has no session id yet, so it has no recorded mode - show drafts in
   // both modes rather than hiding work the user has started but not sent.
@@ -66,7 +78,7 @@ export function LayoutNewSidebar(): JSX.Element {
         <ModeSwitch />
         <button
           type="button"
-          onClick={() => navigate("/new-session")}
+          onClick={newSession}
           class="flex items-center gap-2 rounded-md px-2 py-1.5 text-13-medium text-v2-text-secondary hover:bg-v2-background-bg-deep hover:text-v2-text-primary"
         >
           <IconV2 name="plus" size="small" />

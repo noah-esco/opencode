@@ -23,6 +23,7 @@ import { dropSessionCaches, pickSessionCacheEvictions, SESSION_CACHE_LIMIT } fro
 import { createV2SessionReducer, type V2SessionReduction } from "./server-session-v2-reducer"
 import type { ServerApi } from "@/utils/server"
 import { markTurnStart, markFirstToken, markTurnEnd } from "@/context/llm-metrics"
+import { setSessionMode } from "@/context/session-mode"
 
 type MessageApi = ServerApi["message"]
 
@@ -1032,6 +1033,9 @@ export function createServerSession(
         const info = cleanMessage((event.properties as { info: Message }).info)
         indexLegacyMessage(info)
         if (info.role === "assistant") {
+          // A draft has no session id, so mode is recorded from the agent that
+          // actually ran rather than guessed when the draft was created.
+          if (info.agent) setSessionMode(info.sessionID, info.agent === "chat" ? "chat" : "code")
           markTurnStart(info.id, info.time?.created)
           if (info.time?.completed) markTurnEnd(info.id, info.tokens?.output, info.time.completed)
         }
