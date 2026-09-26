@@ -23,6 +23,7 @@ import { NEW_SESSION_CONTENT_WIDTH } from "@/pages/session/new-session-layout"
 import { Persist, persisted } from "@/utils/persist"
 import type { NewSessionDraftController } from "./new-session-draft-controller"
 import type { NewSessionWorkspaceController } from "./new-session-workspace-controller"
+import { activeMode } from "@/context/session-mode"
 
 const providerTipDismissalDuration = 30 * 24 * 60 * 60 * 1000
 
@@ -42,10 +43,10 @@ export function NewSessionView(props: {
             <WordmarkV2 class="h-auto w-full text-v2-background-bg-inverse" />
             <div class="mt-8 flex flex-col gap-8">
               <PromptInputV2Composer controller={props.input} />
-              <Show when={props.project.empty()}>
+              <Show when={props.project.empty() && activeMode() !== "chat"}>
                 <PromptProjectAddButton controller={props.project} />
               </Show>
-              <Show when={props.project.selected()}>
+              <Show when={props.project.selected() && activeMode() !== "chat"}>
                 <div class="flex min-h-7 min-w-0 flex-col items-center justify-center gap-0 text-v2-text-text-faint sm:flex-row">
                   <PromptProjectSelector controller={props.project} placement="bottom" />
                   <Show
