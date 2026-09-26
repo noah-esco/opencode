@@ -1261,12 +1261,18 @@ const layer = Layer.effect(
               sys.mcp(agent, session.permission),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
-            const system = [
-              ...env,
-              ...instructions,
-              ...(mcpInstructions ? [mcpInstructions] : []),
-              ...(skills ? [skills] : []),
-            ]
+            // An agent that cannot touch the project (agent.projectContext === false)
+            // gains nothing from the env block, AGENTS.md or MCP instructions, and on a
+            // local model that context is paid for as prefill latency every turn.
+            const withProject = agent.projectContext !== false
+            const system = withProject
+              ? [
+                  ...env,
+                  ...instructions,
+                  ...(mcpInstructions ? [mcpInstructions] : []),
+                  ...(skills ? [skills] : []),
+                ]
+              : [...(skills ? [skills] : [])]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

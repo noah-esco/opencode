@@ -53,6 +53,13 @@ export const Info = Schema.Struct({
   prompt: Schema.optional(Schema.String),
   options: Schema.Record(Schema.String, Schema.Unknown),
   steps: Schema.optional(Schema.Finite),
+  /**
+   * Whether to include the environment block, project instructions (AGENTS.md)
+   * and MCP instructions in this agent's system prompt. Defaults to true.
+   * An agent that cannot touch the project pays for that context in pure
+   * prefill latency - which on a local model is seconds per turn.
+   */
+  projectContext: Schema.optional(Schema.Boolean),
 }).annotate({ identifier: "Agent" })
 export type Info = DeepMutable<Schema.Schema.Type<typeof Info>>
 
@@ -166,6 +173,7 @@ const layer = Layer.effect(
               user,
             ),
             prompt: PROMPT_CHAT,
+            projectContext: false,
             mode: "primary",
             native: true,
           },
