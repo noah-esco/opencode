@@ -22,6 +22,7 @@ import { pathKey } from "@/utils/path-key"
 import { NewSessionItem, SessionItem, SessionSkeleton } from "./sidebar-items"
 import { sortedRootSessions } from "./helpers"
 import { useIsFetching } from "@tanstack/solid-query"
+import { activeMode, filterSessionsByMode } from "@/context/session-mode"
 
 type InlineEditorComponent = (props: {
   id: string
@@ -312,7 +313,9 @@ export const SortableWorkspace = (props: {
     pendingRename: false,
   })
   const slug = createMemo(() => base64Encode(props.directory))
-  const sessions = createMemo(() => sortedRootSessions(workspaceStore, props.sortNow()))
+  const sessions = createMemo(() =>
+    filterSessionsByMode(sortedRootSessions(workspaceStore, props.sortNow()), activeMode()),
+  )
   const local = createMemo(() => props.directory === props.project.worktree)
   const active = createMemo(() => pathKey(props.ctx.currentDir()) === pathKey(props.directory))
   const workspaceValue = createMemo(() => {

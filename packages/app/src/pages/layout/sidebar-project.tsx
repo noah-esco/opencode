@@ -12,6 +12,7 @@ import { useLanguage } from "@/context/language"
 import { useNotification } from "@/context/notification"
 import { ProjectIcon, SessionItem, type SessionItemProps } from "./sidebar-items"
 import { displayName, sortedRootSessions } from "./helpers"
+import { activeMode, filterSessionsByMode } from "@/context/session-mode"
 
 export type ProjectSidebarContext = {
   currentDir: Accessor<string>
@@ -310,7 +311,9 @@ export const SortableProject = (props: {
       })
     }),
   )
-  const projectSessions = createMemo(() => sortedRootSessions(projectStore(), props.sortNow()))
+  const projectSessions = createMemo(() =>
+    filterSessionsByMode(sortedRootSessions(projectStore(), props.sortNow()), activeMode()),
+  )
   const workspaceSessions = (directory: string) => {
     const [data] = serverSync().child(directory, { bootstrap: false })
     return sortedRootSessions(data, props.sortNow())

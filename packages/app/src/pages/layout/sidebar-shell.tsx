@@ -11,6 +11,7 @@ import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { type LocalProject } from "@/context/layout"
+import { ModeSwitch } from "./mode-switch"
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -118,7 +119,10 @@ export const SidebarContent = (props: {
         classList={{ "flex-1 flex h-full min-h-0 min-w-0 overflow-hidden": true, "pointer-events-none": !expanded() }}
         aria-hidden={!expanded()}
       >
-        {props.renderPanel()}
+        <div class="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+          <ModeSwitch />
+          <div class="flex-1 flex min-h-0 min-w-0 overflow-hidden">{props.renderPanel()}</div>
+        </div>
       </div>
     </div>
   )
