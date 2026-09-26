@@ -82,6 +82,7 @@ import { createPromptInputTransientState } from "./prompt-input/transient-state"
 import { showToast } from "@/utils/toast"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
 import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
+import { toggleRecording, voiceState } from "@/context/voice-input"
 
 export { createPromptInputHistory }
 export type { PromptInputControls, PromptInputHistory, PromptInputProps, PromptInputState, PromptInputSubmission }
@@ -1617,6 +1618,29 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   <Icon name="plus" class="size-4.5" />
                 </Button>
               </TooltipKeybind>
+              <Tooltip placement="top" value={voiceState() === "recording" ? "Stop and transcribe" : "Voice input"}>
+                <Button
+                  data-action="prompt-voice"
+                  type="button"
+                  variant="ghost"
+                  class="size-8 p-0"
+                  style={buttons()}
+                  onClick={async () => {
+                    // Push-to-talk: transcript lands in the box for review, never auto-sent.
+                    const text = await toggleRecording()
+                    if (!text) return
+                    // editorRef is the contenteditable div (role="textbox").
+                    // execCommand keeps the editor's own input handling intact,
+                    // which setting textContent would bypass.
+                    editorRef?.focus()
+                    document.execCommand("insertText", false, text)
+                  }}
+                  disabled={store.mode !== "normal" || voiceState() === "transcribing"}
+                  aria-label="Voice input"
+                >
+                  <Icon name={voiceState() === "recording" ? "stop" : "speech-bubble"} class="size-4.5" />
+                </Button>
+              </Tooltip>
             </div>
           </div>
         </div>
