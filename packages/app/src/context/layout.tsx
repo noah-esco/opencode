@@ -21,6 +21,7 @@ import { createSessionKeyReader, ensureSessionKey, pruneSessionKeys } from "./la
 import { requireServerKey } from "@/utils/session-route"
 import { type DraftTab, useTabs } from "./tabs"
 import { closeSessionTab, openSessionTab, previewSessionTab, type SessionTabs } from "./layout-tabs"
+import { SIDEBAR_NAV } from "@/context/navigation-mode"
 
 export { createSessionKeyReader, ensureSessionKey, pruneSessionKeys }
 
@@ -272,7 +273,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       { ...target, migrate },
       createStore({
         sidebar: {
-          opened: false,
+          opened: SIDEBAR_NAV,
           width: DEFAULT_SIDEBAR_WIDTH,
           workspaces: {} as Record<string, boolean>,
           workspacesDefault: false,

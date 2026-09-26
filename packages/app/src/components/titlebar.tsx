@@ -39,6 +39,7 @@ import type { PromptSession } from "@/context/prompt"
 import "./titlebar.css"
 import { newTabTooltipKeybind } from "./command-tooltip-keybind"
 import { normalizeSessionInfo } from "@/utils/session"
+import { SIDEBAR_NAV } from "@/context/navigation-mode"
 
 const legacyTitlebarHeight = 40
 const v2TitlebarHeight = 36
@@ -395,6 +396,7 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                   />
                 </TooltipV2>
 
+                <Show when={!SIDEBAR_NAV}>
                 <TitlebarTabStrip
                   tabs={tabsStore}
                   currentTab={currentTab}
@@ -410,6 +412,7 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                   }}
                   onReorder={(keys) => tabsStoreActions.reorder(keys)}
                 />
+                </Show>
                 <TooltipV2
                   placement="bottom"
                   value={
