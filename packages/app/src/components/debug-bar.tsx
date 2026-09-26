@@ -6,6 +6,7 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import { llmTtft, llmRate, llmStreaming } from "@/context/llm-metrics"
 
 type Mem = Performance & {
   memory?: {
@@ -50,6 +51,9 @@ const bad = (n: number | undefined, limit: number, low = false) => {
   if (n === undefined || Number.isNaN(n)) return false
   return low ? n < limit : n > limit
 }
+
+const ttftv = (n?: number) => (n === undefined ? undefined : n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${Math.round(n)}ms`)
+const ratev = (n?: number) => (n === undefined ? undefined : `${n.toFixed(1)}/s`)
 
 const session = (path: string) => path.includes("/session")
 
@@ -545,6 +549,22 @@ export function DebugBar(props: { inline?: boolean } = {}) {
           value={state.cls === undefined ? na() : state.cls.toFixed(2)}
           bad={bad(state.cls, 0.1)}
           dim={state.cls === undefined}
+          inline={props.inline}
+        />
+        <Cell
+          label="TTFT"
+          tip="Time to first token. On a local model this is dominated by prefill, not generation."
+          value={ttftv(llmTtft()) ?? (llmStreaming() ? "..." : na())}
+          bad={bad(llmTtft(), 5000)}
+          dim={llmTtft() === undefined}
+          inline={props.inline}
+        />
+        <Cell
+          label="TOK"
+          tip="Decode rate: output tokens from first token to completion, excluding prefill."
+          value={ratev(llmRate()) ?? na()}
+          bad={bad(llmRate(), 10, true)}
+          dim={llmRate() === undefined}
           inline={props.inline}
         />
         <Cell

@@ -22,6 +22,7 @@ import { compareMessages, messageKey, normalizeSessionMessages } from "@/utils/s
 import { dropSessionCaches, pickSessionCacheEvictions, SESSION_CACHE_LIMIT } from "./global-sync/session-cache"
 import { createV2SessionReducer, type V2SessionReduction } from "./server-session-v2-reducer"
 import type { ServerApi } from "@/utils/server"
+import { markTurnStart, markFirstToken, markTurnEnd } from "@/context/llm-metrics"
 
 type MessageApi = ServerApi["message"]
 
@@ -1030,6 +1031,10 @@ export function createServerSession(
       case "message.updated": {
         const info = cleanMessage((event.properties as { info: Message }).info)
         indexLegacyMessage(info)
+        if (info.role === "assistant") {
+          markTurnStart(info.id, info.time?.created)
+          if (info.time?.completed) markTurnEnd(info.id, info.tokens?.output, info.time.completed)
+        }
         const load = messageLoads.get(info.sessionID)
         load?.touchedMessages.add(info.id)
         load?.removedMessages.delete(info.id)
@@ -1195,6 +1200,7 @@ export function createServerSession(
           field: string
           delta: string
         }
+        markFirstToken(props.messageID)
         const parts = data.part[props.messageID]
         if (!parts) return
         const result = Binary.search(parts, props.partID, (part) => part.id)
