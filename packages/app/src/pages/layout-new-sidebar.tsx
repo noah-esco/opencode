@@ -2,6 +2,8 @@ import { createMemo, For, Show, type JSX } from "solid-js"
 import { useLocation } from "@solidjs/router"
 import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
+import { useServerSync } from "@/context/server-sync"
+import { sessionTitle } from "@/utils/session-title"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { tabHref, tabKey, useTabs, type Tab } from "@/context/tabs"
@@ -49,6 +51,7 @@ export function LayoutNewSidebar(): JSX.Element {
   const tabs = useTabs()
   const layout = useLayout()
   const server = useServer()
+  const serverSync = useServerSync()
   const location = useLocation()
 
   // navigate("/new-session") lands on Home, not a composer. A new session is a
@@ -66,7 +69,15 @@ export function LayoutNewSidebar(): JSX.Element {
     tabs.store.filter((tab) => (tab.type === "draft" ? true : sessionMode(tab.sessionId) === activeMode())),
   )
 
-  const title = (tab: Tab) => tabs.info[tabKey(tab)]?.title?.trim() || "New session"
+  // The live title lives in the sync store; tabs.info is only a fallback for
+  // tabs whose session has not loaded yet. Same precedence the titlebar strip
+  // uses - reading tabs.info first is why every row said "New session".
+  const title = (tab: Tab) => {
+    const persisted = tabs.info[tabKey(tab)]?.title?.trim()
+    if (tab.type === "draft") return persisted || "New session"
+    const live = serverSync().session.get(tab.sessionId)?.title?.trim()
+    return sessionTitle(live || persisted || "") || "Untitled session"
+  }
   const current = (tab: Tab) => location.pathname === tabHref(tab).split("?")[0]
 
   return (
