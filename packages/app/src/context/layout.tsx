@@ -187,11 +187,15 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       const sidebar = value.sidebar
       const migratedSidebar = (() => {
         if (!isRecord(sidebar)) return sidebar
-        if (typeof sidebar.workspaces !== "boolean") return sidebar
+        // Sidebar-first nav hides the tab strip, so a persisted `opened: false`
+        // from a previous version would leave no way to move between sessions.
+        // Force it open here; the toggle still works afterwards.
+        const base = SIDEBAR_NAV ? { ...sidebar, opened: true } : sidebar
+        if (typeof base.workspaces !== "boolean") return base
         return {
-          ...sidebar,
+          ...base,
           workspaces: {},
-          workspacesDefault: sidebar.workspaces,
+          workspacesDefault: base.workspaces,
         }
       })()
 
