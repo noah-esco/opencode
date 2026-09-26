@@ -44,6 +44,10 @@ export type PromptInputV2Props = {
   variantControlVisible?: boolean
   attachKeybind?: string[]
   attachShortcut?: string
+  /** Injected by the app: toggles recording, resolves with a transcript ("" while starting). */
+  onVoiceToggle?: () => Promise<string>
+  /** "idle" | "recording" | "transcribing" | "unavailable" */
+  voiceState?: () => string
 }
 
 export function PromptInputV2(props: PromptInputV2Props) {
@@ -216,6 +220,24 @@ export function PromptInputV2(props: PromptInputV2Props) {
               onContext={props.controller.openContext}
               onShell={props.controller.openShell}
             />
+            <Show when={props.onVoiceToggle}>
+              <IconButtonV2
+                type="button"
+                variant="ghost-muted"
+                size="large"
+                disabled={state.mode === "shell" || props.voiceState?.() === "transcribing"}
+                aria-label={props.voiceState?.() === "recording" ? "Stop recording" : "Voice input"}
+                icon={<IconV2 name={props.voiceState?.() === "recording" ? "square" : "mic"} />}
+                onClick={async () => {
+                  const text = await props.onVoiceToggle?.()
+                  if (!text) return
+                  // execCommand so the controller's own onInput handling runs;
+                  // writing textContent directly would bypass it.
+                  editor?.focus()
+                  document.execCommand("insertText", false, text)
+                }}
+              />
+            </Show>
             <Show when={view.agent} keyed>
               {(control) => (
                 <PromptInputV2ConfiguredSelect

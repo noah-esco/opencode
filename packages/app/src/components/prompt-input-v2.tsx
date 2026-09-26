@@ -27,6 +27,7 @@ import { useSync } from "@/context/sync"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { showToast } from "@/utils/toast"
 import { PromptInputV2, type PromptInputV2Suggestion } from "@opencode-ai/session-ui/v2/prompt-input"
+import { toggleRecording, voiceState } from "@/context/voice-input"
 import {
   createPromptInputV2Controller,
   createPromptInputV2State,
@@ -58,6 +59,8 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
         variantControlVisible={!props.controller.model.loading}
         attachKeybind={command.keybindParts("file.attach")}
         attachShortcut={command.keybind("file.attach")}
+        onVoiceToggle={toggleRecording}
+        voiceState={voiceState}
         modelControl={
           <PromptInputV2ModelControl
             loading={props.controller.model.loading}
