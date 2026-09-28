@@ -3,11 +3,19 @@ import { useLocation } from "@solidjs/router"
 import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
+import { useLocal } from "@/context/local"
 import { sessionTitle } from "@/utils/session-title"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { tabHref, tabKey, useTabs, type Tab } from "@/context/tabs"
-import { activeMode, setActiveMode, sessionMode, SESSION_MODES, type SessionMode } from "@/context/session-mode"
+import {
+  activeMode,
+  setActiveMode,
+  sessionMode,
+  SESSION_MODES,
+  AGENT_FOR_MODE,
+  type SessionMode,
+} from "@/context/session-mode"
 
 const LABEL: Record<SessionMode, string> = { code: "Code", chat: "Chat" }
 
@@ -52,6 +60,7 @@ export function LayoutNewSidebar(): JSX.Element {
   const layout = useLayout()
   const server = useServer()
   const serverSync = useServerSync()
+  const local = useLocal()
   const location = useLocation()
 
   // navigate("/new-session") lands on Home, not a composer. A new session is a
@@ -60,6 +69,11 @@ export function LayoutNewSidebar(): JSX.Element {
   const newSession = () => {
     const project = layout.projects.list()[0]
     if (!project) return
+    // Select the agent for the mode BEFORE creating the draft: InitialPrompt
+    // carries only prompt+model, so the draft picks up whatever agent is
+    // currently selected. Without this, "New chat" ran as `build` with the
+    // full coding prompt.
+    local.agent.set(AGENT_FOR_MODE[activeMode()])
     void tabs.newDraft({ server: server.key, directory: project.worktree }, "")
   }
 
