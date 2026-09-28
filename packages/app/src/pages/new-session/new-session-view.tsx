@@ -3,7 +3,7 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { WordmarkV2 } from "@opencode-ai/ui/v2/wordmark-v2"
-import { Show, createMemo, createSignal, type Accessor } from "solid-js"
+import { Show, createEffect, createMemo, createSignal, type Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import createPresence from "solid-presence"
@@ -24,6 +24,7 @@ import { Persist, persisted } from "@/utils/persist"
 import type { NewSessionDraftController } from "./new-session-draft-controller"
 import type { NewSessionWorkspaceController } from "./new-session-workspace-controller"
 import { useLocal } from "@/context/local"
+import { takePendingAgent } from "@/context/session-mode"
 
 const providerTipDismissalDuration = 30 * 24 * 60 * 60 * 1000
 
@@ -35,6 +36,11 @@ export function NewSessionView(props: {
   const local = useLocal()
   // This session's own agent, not the sidebar filter.
   const isChat = () => local.agent.current()?.name === "chat"
+  // Apply the agent the sidebar asked for (it cannot reach LocalProvider).
+  createEffect(() => {
+    const wanted = takePendingAgent()
+    if (wanted) local.agent.set(wanted)
+  })
   return (
     <div class="@container relative flex flex-col min-h-0 h-full flex-1">
       <div

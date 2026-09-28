@@ -95,3 +95,21 @@ export function filterSessionsByMode<T extends { id: string }>(sessions: T[], mo
   const map = read()
   return sessions.filter((s) => (map[s.id] ?? "code") === mode)
 }
+
+/**
+ * Agent the next new draft should use.
+ *
+ * The sidebar lives in layout-new.tsx, OUTSIDE LocalProvider, so it cannot call
+ * useLocal().agent.set() itself. It records the intent here and the new-session
+ * view - which IS inside the provider - applies and clears it.
+ */
+const [pending, setPending] = createSignal<string | undefined>()
+export const pendingAgent = pending
+export function requestAgent(name: string) {
+  setPending(name)
+}
+export function takePendingAgent() {
+  const value = pending()
+  if (value !== undefined) setPending(undefined)
+  return value
+}

@@ -3,7 +3,6 @@ import { useLocation } from "@solidjs/router"
 import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
-import { useLocal } from "@/context/local"
 import { sessionTitle } from "@/utils/session-title"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
@@ -14,6 +13,7 @@ import {
   sessionMode,
   SESSION_MODES,
   AGENT_FOR_MODE,
+  requestAgent,
   type SessionMode,
 } from "@/context/session-mode"
 
@@ -60,7 +60,6 @@ export function LayoutNewSidebar(): JSX.Element {
   const layout = useLayout()
   const server = useServer()
   const serverSync = useServerSync()
-  const local = useLocal()
   const location = useLocation()
 
   // navigate("/new-session") lands on Home, not a composer. A new session is a
@@ -69,11 +68,10 @@ export function LayoutNewSidebar(): JSX.Element {
   const newSession = () => {
     const project = layout.projects.list()[0]
     if (!project) return
-    // Select the agent for the mode BEFORE creating the draft: InitialPrompt
-    // carries only prompt+model, so the draft picks up whatever agent is
-    // currently selected. Without this, "New chat" ran as `build` with the
-    // full coding prompt.
-    local.agent.set(AGENT_FOR_MODE[activeMode()])
+    // This component is outside LocalProvider, so it records the intent and the
+    // new-session view applies it. InitialPrompt carries only prompt+model, so
+    // without this a "New chat" draft inherits `build` and its coding prompt.
+    requestAgent(AGENT_FOR_MODE[activeMode()])
     void tabs.newDraft({ server: server.key, directory: project.worktree }, "")
   }
 
