@@ -238,7 +238,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
                 // a plus. State is shown with colour + motion instead.
                 class={
                   props.voiceState?.() === "recording"
-                    ? "text-v2-icon-icon-critical animate-pulse"
+                    ? "text-icon-critical-base animate-pulse"
                     : props.voiceState?.() === "transcribing"
                       ? "opacity-60"
                       : undefined
