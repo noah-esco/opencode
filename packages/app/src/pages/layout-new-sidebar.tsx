@@ -91,8 +91,16 @@ export function LayoutNewSidebar(): JSX.Element {
 
   // A draft has no session id yet, so it has no recorded mode - show drafts in
   // both modes rather than hiding work the user has started but not sent.
+  // Session.agent is a real field on the v2 schema (and a column in the db), so
+  // mode comes from what actually ran rather than a local map. Falls back to the
+  // recorded mode only while a session has not loaded yet.
+  const modeOf = (sessionId: string): SessionMode => {
+    const agent = serverSync().session.peek(sessionId)?.agent
+    if (agent) return agent === "chat" ? "chat" : "code"
+    return sessionMode(sessionId)
+  }
   const visible = createMemo(() =>
-    tabs.store.filter((tab) => (tab.type === "draft" ? true : sessionMode(tab.sessionId) === activeMode())),
+    tabs.store.filter((tab) => (tab.type === "draft" ? true : modeOf(tab.sessionId) === activeMode())),
   )
 
   // The live title lives in the sync store; tabs.info is only a fallback for
@@ -190,7 +198,11 @@ export function LayoutNewSidebar(): JSX.Element {
                       })
                       return
                     }
+                    const remaining = visible().filter((t) => tabKey(t) !== tabKey(tab))
                     if (index !== -1) tabs.closeTab(index)
+                    // closeTab picks an adjacent tab, which may belong to the
+                    // other mode; if this was the last one here, go blank instead.
+                    if (remaining.length === 0) newSession()
                   }}
                 />
               </div>

@@ -396,7 +396,13 @@ export function usePromptInputV2Controller(props: PromptInputV2ControllerProps):
       get agent() {
         return props.controls.agents.visible && props.controls.agents.options.length > 0
           ? {
-              options: () => props.controls.agents.options.map((name) => ({ id: name, label: name })),
+              // "chat" is a mode, not an agent you pick here: the sidebar's
+              // Code/Chat switch owns it. Offering both was two routes to the
+              // same state that could disagree with each other.
+              options: () =>
+                props.controls.agents.options
+                  .filter((name) => name !== "chat")
+                  .map((name) => ({ id: name, label: name })),
               current: () => props.controls.agents.current,
               onSelect: (value: string) => props.controls.agents.select(value),
               keybind: () => command.keybindParts("agent.cycle"),
