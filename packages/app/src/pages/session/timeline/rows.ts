@@ -120,8 +120,28 @@ export namespace Timeline {
     const latestError = assistantMessages.at(-1)?.error
     const error = latestError?.name === "MessageAbortedError" ? undefined : latestError
 
+    // Small local models sometimes write the whole answer inside a reasoning
+    // block and end the turn without emitting any text part - the user then
+    // sees the tools run and then silence. Verified on qwen3.5:9b: a turn with
+    // parts [step-start, reasoning("The top story is ..."), step-finish] and
+    // reason "stop". If a finished turn produced no text, show its last
+    // reasoning as the answer rather than hiding it.
+    const promoteReasoning = (parts: ReturnType<typeof getMessageParts>, done: boolean) => {
+      if (!done) return parts
+      if (parts.some((part) => part.type === "text" && part.text?.trim())) return parts
+      let promoted = false
+      return [...parts]
+        .reverse()
+        .map((part) => {
+          if (promoted || part.type !== "reasoning" || !part.text?.trim()) return part
+          promoted = true
+          return { ...part, type: "text" as const }
+        })
+        .reverse()
+    }
+
     const assistantPartRefs = assistantMessages.flatMap((message, messageIndex) =>
-      getMessageParts(message.id)
+      promoteReasoning(getMessageParts(message.id), !!message.time?.completed)
         .filter((part) => renderable(part, showReasoning))
         .map((part) => ({ messageID: message.id, messageIndex, part })),
     )
