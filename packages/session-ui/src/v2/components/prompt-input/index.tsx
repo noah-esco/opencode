@@ -233,17 +233,21 @@ export function PromptInputV2(props: PromptInputV2Props) {
                       ? "Transcribing..."
                       : "Voice input"
                 }
-                // Always the mic glyph: "square" is not a key in the v2 icon set
-                // (it only appears as a stroke-linecap value), so it fell back to
-                // a plus. State is shown with colour + motion instead.
-                class={
-                  props.voiceState?.() === "recording"
-                    ? "text-icon-critical-base animate-pulse"
-                    : props.voiceState?.() === "transcribing"
-                      ? "opacity-60"
-                      : undefined
+                // Always the mic glyph: "square" is not a key in the v2 icon set.
+                // The colour goes on the ICON, not the button: IconButtonV2 puts
+                // `class` on the <button>, where the variant's own text colour
+                // wins - which is why the recording tint never showed.
+                class={props.voiceState?.() === "transcribing" ? "opacity-60" : undefined}
+                icon={
+                  <IconV2
+                    name="mic"
+                    class={
+                      props.voiceState?.() === "recording"
+                        ? "text-icon-critical-base animate-pulse"
+                        : undefined
+                    }
+                  />
                 }
-                icon={<IconV2 name="mic" />}
                 onClick={async () => {
                   const text = await props.onVoiceToggle?.()
                   if (!text) return
