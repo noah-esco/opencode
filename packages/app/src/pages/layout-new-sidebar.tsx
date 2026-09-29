@@ -99,13 +99,26 @@ export function LayoutNewSidebar(): JSX.Element {
   // Session.agent is a real field on the v2 schema (and a column in the db), so
   // mode comes from what actually ran rather than a local map. Falls back to the
   // recorded mode only while a session has not loaded yet.
-  const modeOf = (sessionId: string): SessionMode => {
+  /**
+   * Strict: undefined means "not loaded yet, do not guess".
+   *
+   * Guessing here is destructive. The old fallback returned "code" for any
+   * session that had not loaded, so a chat session was briefly mislabelled,
+   * the effect navigated away, the session then loaded and it navigated back -
+   * churn that interrupted the message load and left the view blank.
+   */
+  const modeOf = (sessionId: string): SessionMode | undefined => {
     const agent = serverSync().session.peek(sessionId)?.agent
     if (agent) return agent === "chat" ? "chat" : "code"
-    return sessionMode(sessionId)
+    return undefined
   }
+
+  /** Lenient, for filtering the list only - a wrong guess here is cosmetic. */
+  const listModeOf = (sessionId: string): SessionMode => modeOf(sessionId) ?? sessionMode(sessionId)
   // tabs.tsx cannot reach serverSync, so give it this resolver.
-  setModeResolver(modeOf)
+  // Lenient here: tab-close eligibility tolerates a default, and a strict
+  // undefined would make every unloaded tab ineligible.
+  setModeResolver(listModeOf)
 
   const switchMode = (mode: SessionMode) => setActiveMode(mode)
 
@@ -122,6 +135,7 @@ export function LayoutNewSidebar(): JSX.Element {
   createEffect(() => {
     const mode = activeMode()
     const path = location.pathname // tracked, so this re-runs after navigation
+    if (!tabs.ready()) return
 
     const showing = tabs.store.find((tab) => tabHref(tab).split("?")[0] === path)
 
@@ -137,6 +151,10 @@ export function LayoutNewSidebar(): JSX.Element {
     // drafts as valid in every mode meant that once a draft was on screen,
     // switching modes never moved you off it - so Chat -> Code never restored
     // the code session.
+    // Never move off a session whose mode is still unknown: that is the load
+    // race, and navigating mid-load is what blanked the view.
+    if (showing && showing.type !== "draft" && modeOf(showing.sessionId) === undefined) return
+
     if (newest) {
       if (showing && tabKey(showing) === tabKey(newest)) return
       tabs.select(newest)
@@ -151,7 +169,7 @@ export function LayoutNewSidebar(): JSX.Element {
   })
 
   const visible = createMemo(() =>
-    tabs.store.filter((tab) => (tab.type === "draft" ? true : modeOf(tab.sessionId) === activeMode())),
+    tabs.store.filter((tab) => (tab.type === "draft" ? true : listModeOf(tab.sessionId) === activeMode())),
   )
 
   // The live title lives in the sync store; tabs.info is only a fallback for
