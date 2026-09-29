@@ -69,7 +69,7 @@ export function LayoutNewSidebar(): JSX.Element {
   // navigate("/new-session") lands on Home, not a composer. A new session is a
   // DRAFT: tabs.newDraft creates it, registers the tab and navigates - the same
   // call the titlebar's "+" makes.
-  const newSession = () => {
+  const newSession = (force = false) => {
     const project = layout.projects.list()[0]
     if (!project) return
     // This component is outside LocalProvider, so it records the intent and the
@@ -79,9 +79,9 @@ export function LayoutNewSidebar(): JSX.Element {
     // Reuse an untouched draft rather than stacking a new one on every click.
     // A draft has no session id until its first message, so any draft tab with
     // no recorded title is still empty.
-    const existing = tabs.store.find(
-      (tab) => tab.type === "draft" && !tabs.info[tabKey(tab)]?.title?.trim(),
-    )
+    const existing = force
+      ? undefined
+      : tabs.store.find((tab) => tab.type === "draft" && !tabs.info[tabKey(tab)]?.title?.trim())
     if (existing) {
       tabs.select(existing)
       return
@@ -135,7 +135,7 @@ export function LayoutNewSidebar(): JSX.Element {
         </button>
         <button
           type="button"
-          onClick={newSession}
+          onClick={() => newSession()}
           class="flex items-center gap-2 rounded-md px-2 py-1.5 text-13-medium text-v2-text-secondary hover:bg-v2-background-bg-deep hover:text-v2-text-primary"
         >
           <IconV2 name="plus" size="small" />
@@ -200,9 +200,12 @@ export function LayoutNewSidebar(): JSX.Element {
                     }
                     const remaining = visible().filter((t) => tabKey(t) !== tabKey(tab))
                     if (index !== -1) tabs.closeTab(index)
-                    // closeTab picks an adjacent tab, which may belong to the
-                    // other mode; if this was the last one here, go blank instead.
-                    if (remaining.length === 0) newSession()
+                    // closeTab navigates from inside a startTransition, and its
+                    // nextTabAfterClose scans the whole store ignoring mode - so
+                    // it can land on a session from the other mode. Navigating
+                    // synchronously here loses the race; defer past the
+                    // transition so ours is the last navigation to run.
+                    if (remaining.length === 0) setTimeout(() => newSession(true), 0)
                   }}
                 />
               </div>
