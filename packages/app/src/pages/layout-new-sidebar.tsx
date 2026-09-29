@@ -31,7 +31,7 @@ const LABEL: Record<SessionMode, string> = { code: "Code", chat: "Chat" }
  * tabs.info, select/closeTab), so this is genuinely the strip relocated
  * vertically rather than a second, divergent notion of "open sessions".
  */
-function ModeSwitch(): JSX.Element {
+function ModeSwitch(props: { onSwitch: (mode: SessionMode) => void }): JSX.Element {
   return (
     <div
       role="tablist"
@@ -103,6 +103,29 @@ export function LayoutNewSidebar(): JSX.Element {
   // tabs.tsx cannot reach serverSync, so give it this resolver.
   setModeResolver(modeOf)
 
+  /**
+   * Switching mode should move the main window too, not just filter the list:
+   * go to the most recently updated session in that mode, or a blank one.
+   */
+  const switchMode = (mode: SessionMode) => {
+    setActiveMode(mode)
+    const candidates = tabs.store.filter((tab) =>
+      tab.type === "draft" ? false : modeOf(tab.sessionId) === mode,
+    )
+    // Genuinely most recent, by the session's own updated time - store order is
+    // insertion order, which is not the same thing.
+    const newest = candidates
+      .map((tab) => ({ tab, at: serverSync().session.peek((tab as { sessionId: string }).sessionId)?.time?.updated ?? 0 }))
+      .sort((a, b) => b.at - a.at)[0]?.tab
+    if (newest) {
+      tabs.select(newest)
+      return
+    }
+    // Not forced: toggling back and forth between two empty modes should reuse
+    // the blank draft rather than stack a new one on every switch.
+    newSession()
+  }
+
   const visible = createMemo(() =>
     tabs.store.filter((tab) => (tab.type === "draft" ? true : modeOf(tab.sessionId) === activeMode())),
   )
@@ -127,7 +150,7 @@ export function LayoutNewSidebar(): JSX.Element {
       class="w-60 shrink-0 h-full flex flex-col border-r border-v2-border-base bg-v2-background-bg-base"
     >
       <div class="p-2 flex flex-col gap-2">
-        <ModeSwitch />
+        <ModeSwitch onSwitch={switchMode} />
         <button
           type="button"
           onClick={toggleBrowser}
