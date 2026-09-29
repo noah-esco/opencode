@@ -1,5 +1,5 @@
-import { createMemo, For, Show, type JSX } from "solid-js"
-import { useLocation } from "@solidjs/router"
+import { createEffect, createMemo, For, Show, type JSX } from "solid-js"
+import { useLocation, useNavigate } from "@solidjs/router"
 import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
@@ -66,13 +66,16 @@ export function LayoutNewSidebar(): JSX.Element {
   const serverSync = useServerSync()
   const serverSDK = useServerSDK()
   const location = useLocation()
+  const navigate = useNavigate()
 
   // navigate("/new-session") lands on Home, not a composer. A new session is a
   // DRAFT: tabs.newDraft creates it, registers the tab and navigates - the same
   // call the titlebar's "+" makes.
   const newSession = (force = false) => {
     const project = layout.projects.list()[0]
-    if (!project) return
+    // Returns false when it could not open anything, so callers are not left
+    // believing they navigated when nothing happened.
+    if (!project) return false
     // This component is outside LocalProvider, so it records the intent and the
     // new-session view applies it. InitialPrompt carries only prompt+model, so
     // without this a "New chat" draft inherits `build` and its coding prompt.
@@ -85,9 +88,10 @@ export function LayoutNewSidebar(): JSX.Element {
       : tabs.store.find((tab) => tab.type === "draft" && !tabs.info[tabKey(tab)]?.title?.trim())
     if (existing) {
       tabs.select(existing)
-      return
+      return true
     }
     void tabs.newDraft({ server: server.key, directory: project.worktree }, "")
+    return true
   }
 
   // A draft has no session id yet, so it has no recorded mode - show drafts in
@@ -103,28 +107,42 @@ export function LayoutNewSidebar(): JSX.Element {
   // tabs.tsx cannot reach serverSync, so give it this resolver.
   setModeResolver(modeOf)
 
+  const switchMode = (mode: SessionMode) => setActiveMode(mode)
+
   /**
-   * Switching mode should move the main window too, not just filter the list:
-   * go to the most recently updated session in that mode, or a blank one.
+   * Keep the main window in the active mode.
+   *
+   * Written as an effect rather than work inside the click handler: three
+   * handler-based attempts failed because some branch quietly did nothing
+   * (drafts took an early return, a navigation lost a race, a guard returned
+   * without a project). An effect re-runs on every mode change and on every
+   * route change, so if the view is ever showing the wrong mode it corrects
+   * itself regardless of how it got there.
    */
-  const switchMode = (mode: SessionMode) => {
-    setActiveMode(mode)
-    const candidates = tabs.store.filter((tab) =>
-      tab.type === "draft" ? false : modeOf(tab.sessionId) === mode,
-    )
-    // Genuinely most recent, by the session's own updated time - store order is
-    // insertion order, which is not the same thing.
-    const newest = candidates
-      .map((tab) => ({ tab, at: serverSync().session.peek((tab as { sessionId: string }).sessionId)?.time?.updated ?? 0 }))
+  createEffect(() => {
+    const mode = activeMode()
+    const path = location.pathname // tracked, so this re-runs after navigation
+
+    const showing = tabs.store.find((tab) => tabHref(tab).split("?")[0] === path)
+    // A draft belongs to either mode, so it never needs correcting.
+    if (showing && (showing.type === "draft" || modeOf(showing.sessionId) === mode)) return
+
+    const newest = tabs.store
+      .filter((tab) => tab.type !== "draft" && modeOf(tab.sessionId) === mode)
+      .map((tab) => ({
+        tab,
+        at: serverSync().session.peek((tab as { sessionId: string }).sessionId)?.time?.updated ?? 0,
+      }))
       .sort((a, b) => b.at - a.at)[0]?.tab
+
     if (newest) {
       tabs.select(newest)
       return
     }
-    // Not forced: toggling back and forth between two empty modes should reuse
-    // the blank draft rather than stack a new one on every switch.
-    newSession()
-  }
+    // Nothing in this mode and no project to open a draft in: clear the stale
+    // view rather than leaving the other mode's session on screen.
+    if (!newSession()) navigate("/")
+  })
 
   const visible = createMemo(() =>
     tabs.store.filter((tab) => (tab.type === "draft" ? true : modeOf(tab.sessionId) === activeMode())),
