@@ -247,10 +247,17 @@ export function PromptInputV2(props: PromptInputV2Props) {
                 onClick={async () => {
                   const text = await props.onVoiceToggle?.()
                   if (!text) return
-                  // execCommand so the controller's own onInput handling runs;
-                  // writing textContent directly would bypass it.
-                  editor?.focus()
-                  document.execCommand("insertText", false, text)
+                  // The editor syncs to the controller from its DOM `input`
+                  // event. execCommand does not reliably fire that here, so
+                  // insert and then dispatch the event ourselves - otherwise
+                  // the text appears and is immediately lost on re-render.
+                  if (!editor) return
+                  editor.focus()
+                  const inserted = document.execCommand("insertText", false, text)
+                  if (!inserted) editor.textContent = `${editor.textContent ?? ""}${text}`
+                  editor.dispatchEvent(
+                    new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }),
+                  )
                 }}
               />
             </Show>

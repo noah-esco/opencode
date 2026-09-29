@@ -22,7 +22,10 @@ const [error, setError] = createSignal<string | undefined>()
 export const voiceState = state
 export const voiceError = error
 
+const MAX_RECORDING_MS = 60_000
+
 let recorder: MediaRecorder | undefined
+let autoStop: ReturnType<typeof setTimeout> | undefined
 let chunks: Blob[] = []
 let stream: MediaStream | undefined
 
@@ -64,10 +67,18 @@ export async function startRecording(): Promise<void> {
   }
   recorder.start()
   setState("recording")
+  // A recording left running forever is worse than a truncated one.
+  autoStop = setTimeout(() => {
+    if (state() === "recording") void stopRecording()
+  }, MAX_RECORDING_MS)
 }
 
 /** Stops recording and resolves with the transcript ("" if nothing usable). */
 export async function stopRecording(): Promise<string> {
+  if (autoStop) {
+    clearTimeout(autoStop)
+    autoStop = undefined
+  }
   const rec = recorder
   if (!rec || state() !== "recording") return ""
   const done = new Promise<void>((resolve) => {
@@ -105,6 +116,10 @@ export async function toggleRecording(): Promise<string> {
 
 /** Test seam. */
 export function resetVoice() {
+  if (autoStop) {
+    clearTimeout(autoStop)
+    autoStop = undefined
+  }
   recorder = undefined
   stream = undefined
   chunks = []
