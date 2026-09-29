@@ -13,6 +13,7 @@ import { createTabMemory } from "./tab-memory"
 import { nextTabAfterClose, pushClosedTab, removeClosedTabs, takeClosedTab, type ClosedTab } from "./closed-tabs"
 import { createDraftPromptSession, type PromptModel } from "./prompt-state"
 import { migrateTabs } from "./tab-migration"
+import { activeMode, modeOfSession } from "@/context/session-mode"
 
 export type SessionTab = {
   type: "session"
@@ -157,7 +158,11 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       if (!tab) return
       const key = tabKey(tab)
       const draftID = tab.type === "draft" ? tab.draftID : undefined
-      const nextTab = nextTabAfterClose(store, index, recentKey() === key && location.pathname !== "/")
+      const nextTab = nextTabAfterClose(store, index, recentKey() === key && location.pathname !== "/", (candidate) =>
+        // Stay within the mode being closed; a draft has no session yet so it
+        // is valid in either.
+        candidate.type === "draft" ? true : modeOfSession(candidate.sessionId) === activeMode(),
+      )
       closing.add(key)
       void startTransition(() => {
         setStore(

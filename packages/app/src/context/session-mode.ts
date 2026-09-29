@@ -113,3 +113,17 @@ export function takePendingAgent() {
   if (value !== undefined) setPending(undefined)
   return value
 }
+
+/**
+ * Resolve a session's mode. The sidebar installs a resolver backed by
+ * Session.agent; until then this falls back to the recorded map.
+ */
+let resolver: ((sessionID: string) => SessionMode) | undefined
+
+export function setModeResolver(fn: (sessionID: string) => SessionMode) {
+  resolver = fn
+}
+
+export function modeOfSession(sessionID: string): SessionMode {
+  return resolver?.(sessionID) ?? sessionMode(sessionID)
+}

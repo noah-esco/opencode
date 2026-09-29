@@ -17,6 +17,7 @@ import {
   SESSION_MODES,
   AGENT_FOR_MODE,
   requestAgent,
+  setModeResolver,
   type SessionMode,
 } from "@/context/session-mode"
 
@@ -99,6 +100,9 @@ export function LayoutNewSidebar(): JSX.Element {
     if (agent) return agent === "chat" ? "chat" : "code"
     return sessionMode(sessionId)
   }
+  // tabs.tsx cannot reach serverSync, so give it this resolver.
+  setModeResolver(modeOf)
+
   const visible = createMemo(() =>
     tabs.store.filter((tab) => (tab.type === "draft" ? true : modeOf(tab.sessionId) === activeMode())),
   )
@@ -198,14 +202,7 @@ export function LayoutNewSidebar(): JSX.Element {
                       })
                       return
                     }
-                    const remaining = visible().filter((t) => tabKey(t) !== tabKey(tab))
                     if (index !== -1) tabs.closeTab(index)
-                    // closeTab navigates from inside a startTransition, and its
-                    // nextTabAfterClose scans the whole store ignoring mode - so
-                    // it can land on a session from the other mode. Navigating
-                    // synchronously here loses the race; defer past the
-                    // transition so ours is the last navigation to run.
-                    if (remaining.length === 0) setTimeout(() => newSession(true), 0)
                   }}
                 />
               </div>
