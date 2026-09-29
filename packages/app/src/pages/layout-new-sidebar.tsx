@@ -3,6 +3,8 @@ import { useLocation } from "@solidjs/router"
 import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
+import { useServerSDK } from "@/context/server-sdk"
+import { showToast } from "@/utils/toast"
 import { sessionTitle } from "@/utils/session-title"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
@@ -60,6 +62,7 @@ export function LayoutNewSidebar(): JSX.Element {
   const layout = useLayout()
   const server = useServer()
   const serverSync = useServerSync()
+  const serverSDK = useServerSDK()
   const location = useLocation()
 
   // navigate("/new-session") lands on Home, not a composer. A new session is a
@@ -151,8 +154,32 @@ export function LayoutNewSidebar(): JSX.Element {
                   class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                   icon={<IconV2 name="xmark-small" />}
                   aria-label={`Close ${title(tab)}`}
-                  onClick={() => {
+                  onClick={async () => {
                     const index = tabs.store.findIndex((item) => tabKey(item) === tabKey(tab))
+                    // A draft has nothing persisted yet - just close it.
+                    if (tab.type === "draft") {
+                      if (index !== -1) tabs.closeTab(index)
+                      return
+                    }
+                    // Deleting a session is permanent, so confirm first.
+                    if (!confirm(`Delete "${title(tab)}"? This cannot be undone.`)) return
+                    const session = serverSync().session.peek(tab.sessionId)
+                    try {
+                      // useSDK() is just serverSDK().ensureDirSdkContext(dir); the
+                      // sidebar sits inside ServerSDKProvider but NOT SDKProvider,
+                      // so it goes through serverSDK directly.
+                      const dir = session?.directory
+                      if (!dir) throw new Error("unknown session directory")
+                      await serverSDK()
+                        .ensureDirSdkContext(dir)
+                        .api.session.remove({ sessionID: tab.sessionId, directory: dir })
+                    } catch (err) {
+                      showToast({
+                        title: "Could not delete session",
+                        description: err instanceof Error ? err.message : String(err),
+                      })
+                      return
+                    }
                     if (index !== -1) tabs.closeTab(index)
                   }}
                 />
