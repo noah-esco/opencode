@@ -72,6 +72,16 @@ export function LayoutNewSidebar(): JSX.Element {
     // new-session view applies it. InitialPrompt carries only prompt+model, so
     // without this a "New chat" draft inherits `build` and its coding prompt.
     requestAgent(AGENT_FOR_MODE[activeMode()])
+    // Reuse an untouched draft rather than stacking a new one on every click.
+    // A draft has no session id until its first message, so any draft tab with
+    // no recorded title is still empty.
+    const existing = tabs.store.find(
+      (tab) => tab.type === "draft" && !tabs.info[tabKey(tab)]?.title?.trim(),
+    )
+    if (existing) {
+      tabs.select(existing)
+      return
+    }
     void tabs.newDraft({ server: server.key, directory: project.worktree }, "")
   }
 

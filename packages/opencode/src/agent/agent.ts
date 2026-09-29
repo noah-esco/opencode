@@ -175,7 +175,10 @@ const layer = Layer.effect(
             prompt: PROMPT_CHAT,
             projectContext: false,
             mode: "primary",
-            native: true,
+            // native:false on purpose. hasCustomAgent() only counts non-native agents,
+            // and when no custom agent exists local.tsx forces agent.current() to
+            // "build" - which silently ignored any selection of this agent.
+            native: false,
           },
           plan: {
             name: "plan",

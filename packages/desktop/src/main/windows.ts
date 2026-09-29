@@ -23,7 +23,11 @@ const rendererProtocol = "oc"
 const rendererHost = "renderer"
 const clipboardWritePermission = "clipboard-sanitized-write"
 const notificationPermission = "notifications"
-const rendererPermissions = new Set([clipboardWritePermission, notificationPermission])
+// Voice input: getUserMedia is denied silently unless "media" is allowed here,
+// which is why clicking the mic did nothing. macOS still shows its own
+// microphone prompt on first use.
+const mediaPermission = "media"
+const rendererPermissions = new Set([clipboardWritePermission, notificationPermission, mediaPermission])
 const oc2Theme = oc2ThemeJson as DesktopTheme
 const oc2Background = {
   light: resolveThemeVariant(oc2Theme.light, false)["background-base"],
