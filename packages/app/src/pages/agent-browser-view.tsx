@@ -59,7 +59,16 @@ export function AgentBrowserView(props: { active: boolean }): JSX.Element {
           setStatus("live")
           send("Page.enable")
           send("Runtime.enable")
-          send("Page.startScreencast", { format: "jpeg", quality: 60, maxWidth: 1400, maxHeight: 1800 })
+          // Without an explicit viewport the headless shell defaults to a size
+          // that does not match the pane, and object-contain letterboxes the
+          // frame into a thin band. Pin it to the pane's aspect ratio.
+          send("Emulation.setDeviceMetricsOverride", {
+            width: 1000,
+            height: 1400,
+            deviceScaleFactor: 1,
+            mobile: false,
+          })
+          send("Page.startScreencast", { format: "jpeg", quality: 70, maxWidth: 1000, maxHeight: 1400 })
         }
         ws.onmessage = (event) => {
           const msg = JSON.parse(event.data as string)
