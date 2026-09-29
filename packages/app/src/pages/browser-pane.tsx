@@ -1,64 +1,40 @@
-import { createEffect, createSignal, For, Show, type JSX } from "solid-js"
+import { createSignal, Show, type JSX } from "solid-js"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { AgentBrowserView } from "./agent-browser-view"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
+import { AgentBrowserView, agentNavigate, agentGoBack, agentReload } from "./agent-browser-view"
 
 /**
  * In-app browser pane.
  *
- * Why a real rendering browser rather than webfetch: example.com serves 713
- * bytes of HTML and loads five of its six languages from /s.js. Static fetching
- * is structurally blind to anything JS builds, and returns confident, wrong-by-
- * omission answers. This pane renders the same page the agent works from.
+ * There is exactly ONE browser: the Chromium on 9333 that Playwright drives.
+ * The pane renders its screencast and forwards your clicks and keystrokes back
+ * over CDP, so you and the agent are genuinely in the same session rather than
+ * looking at two browsers that happen to share a URL.
  *
- * Security: the <webview> runs in its own persist: partition with node
- * integration off and popups denied, so page content cannot reach the app
- * renderer or the preload bridge.
+ * An earlier version also embedded an Electron <webview> for "your own"
+ * browsing. That was redundant - and its getURL() fired before the element was
+ * dom-ready, which crashed the renderer.
  */
 const [open, setOpen] = createSignal(false)
-const [url, setUrl] = createSignal("https://example.com")
-// "agent" shows the browser Playwright drives; "mine" is your own webview.
-const [mode, setMode] = createSignal<"agent" | "mine">("agent")
+const [url, setUrl] = createSignal("about:blank")
 
 export const browserOpen = open
 export const toggleBrowser = () => setOpen((v) => !v)
-export const openBrowserAt = (next: string) => {
-  setUrl(next)
-  setOpen(true)
-}
 
-/**
- * Follow a navigation the AGENT made, so the pane shows the page it is actually
- * working from. Does not force the pane open - if you closed it, it stays shut
- * and simply catches up when you reopen it.
- */
+/** Reflect a navigation the agent made, so the address bar stays truthful. */
 export const followAgentUrl = (next: string) => {
-  if (!next || next === url()) return
-  setUrl(next)
+  if (next) setUrl(next)
 }
 
 export function BrowserPane(): JSX.Element {
-  const [input, setInput] = createSignal(url())
-  let view: HTMLElement | undefined
-
-  // <webview> does not reliably reload when its src attribute changes after
-  // mount, so drive it explicitly when the url signal moves (e.g. the agent
-  // navigated and followAgentUrl fired).
-  createEffect(() => {
-    const next = url()
-    setInput(next)
-    // @ts-expect-error webview element API
-    if (view?.getURL?.() !== next) view?.loadURL?.(next)
-  })
+  const [input, setInput] = createSignal("")
 
   const go = (raw: string) => {
     const trimmed = raw.trim()
     if (!trimmed) return
     const next = /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
     setUrl(next)
-    setInput(next)
-    // @ts-expect-error webview element API
-    view?.loadURL?.(next)
+    void agentNavigate(next)
   }
 
   return (
@@ -67,24 +43,6 @@ export function BrowserPane(): JSX.Element {
         data-component="browser-pane"
         class="w-[480px] shrink-0 h-full flex flex-col border-l border-v2-border-base bg-v2-background-bg-base"
       >
-        <div class="shrink-0 flex items-center gap-1 px-2 pt-2">
-          <For each={["agent", "mine"] as const}>
-            {(m) => (
-              <button
-                type="button"
-                onClick={() => setMode(m)}
-                aria-pressed={mode() === m}
-                classList={{
-                  "flex-1 rounded px-2 py-1 text-12-medium transition-colors": true,
-                  "bg-v2-background-bg-deep text-v2-text-primary": mode() === m,
-                  "text-v2-text-tertiary hover:text-v2-text-primary": mode() !== m,
-                }}
-              >
-                {m === "agent" ? "Agent view" : "My browser"}
-              </button>
-            )}
-          </For>
-        </div>
         <div class="shrink-0 flex items-center gap-1 p-2 border-b border-v2-border-base">
           <IconButtonV2
             type="button"
@@ -92,8 +50,7 @@ export function BrowserPane(): JSX.Element {
             size="small"
             aria-label="Back"
             icon={<IconV2 name="outline-chevron-down" class="rotate-90" />}
-            // @ts-expect-error webview element API
-            onClick={() => view?.goBack?.()}
+            onClick={() => void agentGoBack()}
           />
           <IconButtonV2
             type="button"
@@ -101,14 +58,17 @@ export function BrowserPane(): JSX.Element {
             size="small"
             aria-label="Reload"
             icon={<IconV2 name="outline-reset" />}
-            // @ts-expect-error webview element API
-            onClick={() => view?.reload?.()}
+            onClick={() => void agentReload()}
           />
           <input
-            value={input()}
+            value={input() || url()}
             onInput={(e) => setInput(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") go(input())
+              if (e.key === "Enter") {
+                go(e.currentTarget.value)
+                setInput("")
+                e.currentTarget.blur()
+              }
             }}
             spellcheck={false}
             aria-label="Address"
@@ -123,15 +83,7 @@ export function BrowserPane(): JSX.Element {
             onClick={() => setOpen(false)}
           />
         </div>
-        <Show when={mode() === "mine"} fallback={<AgentBrowserView active={open() && mode() === "agent"} />}>
-          <webview
-            ref={(el: HTMLElement) => (view = el)}
-            src={url()}
-            partition="persist:agent-browser"
-            allowpopups={false}
-            class="flex-1 min-h-0 w-full bg-white"
-          />
-        </Show>
+        <AgentBrowserView active={open()} />
       </aside>
     </Show>
   )

@@ -1,64 +1,78 @@
 import { createEffect, createSignal, onCleanup, type JSX } from "solid-js"
+import { followAgentUrl } from "./browser-pane"
 
 /**
- * Live view of the browser the AGENT drives.
+ * Live, interactive view of the browser the AGENT drives.
  *
- * Connects to the dedicated Chromium on 9333 over CDP and renders its
- * Page.screencastFrame stream. This is the same browser Playwright MCP is
- * pointed at, so what you see is literally what the agent sees - no more
- * guessing whether its description matches the page.
+ * Renders the Page.screencastFrame stream from the dedicated Chromium on 9333
+ * and forwards clicks, scrolls and keystrokes back over CDP, so you and the
+ * agent share one session.
  *
- * Deliberately 9333 and not the Electron app's own CDP on 9222: that endpoint
- * also exposes the app's renderer, so anything attached to it could drive the
- * UI it is running inside.
+ * Deliberately 9333 and NOT the Electron app's own CDP on 9222: that endpoint
+ * also lists the app's renderer as a target, so anything attached there could
+ * drive the UI it is running inside.
  */
 export const AGENT_CDP = "http://127.0.0.1:9333"
+
+let socket: WebSocket | undefined
+let seq = 0
+/** Natural size of the last frame, for mapping click coordinates. */
+let frameSize = { w: 0, h: 0 }
+
+function send(method: string, params: Record<string, unknown> = {}) {
+  if (socket?.readyState !== WebSocket.OPEN) return
+  socket.send(JSON.stringify({ id: ++seq, method, params }))
+}
+
+export async function agentNavigate(url: string) {
+  send("Page.navigate", { url })
+}
+export async function agentGoBack() {
+  // No CDP "go back"; the page's own history is the reliable route.
+  send("Runtime.evaluate", { expression: "history.back()" })
+}
+export async function agentReload() {
+  send("Page.reload", {})
+}
 
 export function AgentBrowserView(props: { active: boolean }): JSX.Element {
   const [frame, setFrame] = createSignal<string | undefined>()
   const [status, setStatus] = createSignal("connecting")
+  let img: HTMLImageElement | undefined
 
   createEffect(() => {
     if (!props.active) return
-    let ws: WebSocket | undefined
     let cancelled = false
-    let id = 0
 
     const start = async () => {
       try {
         const targets = await fetch(`${AGENT_CDP}/json/list`).then((r) => r.json())
-        const page = (targets as Array<{ type: string; webSocketDebuggerUrl?: string }>).find(
+        const page = (targets as Array<{ type: string; url?: string; webSocketDebuggerUrl?: string }>).find(
           (t) => t.type === "page" && t.webSocketDebuggerUrl,
         )
-        if (!page?.webSocketDebuggerUrl) {
-          setStatus("no page open in the agent browser")
-          return
-        }
+        if (!page?.webSocketDebuggerUrl) return setStatus("no page in the agent browser")
         if (cancelled) return
-        ws = new WebSocket(page.webSocketDebuggerUrl)
+
+        const ws = new WebSocket(page.webSocketDebuggerUrl)
+        socket = ws
         ws.onopen = () => {
           setStatus("live")
-          ws?.send(JSON.stringify({ id: ++id, method: "Page.enable" }))
-          ws?.send(
-            JSON.stringify({
-              id: ++id,
-              method: "Page.startScreencast",
-              params: { format: "jpeg", quality: 60, maxWidth: 1200, maxHeight: 1600 },
-            }),
-          )
+          send("Page.enable")
+          send("Runtime.enable")
+          send("Page.startScreencast", { format: "jpeg", quality: 60, maxWidth: 1400, maxHeight: 1800 })
         }
         ws.onmessage = (event) => {
           const msg = JSON.parse(event.data as string)
-          if (msg.method !== "Page.screencastFrame") return
-          setFrame(`data:image/jpeg;base64,${msg.params.data}`)
-          // Acking is required or Chromium stops sending frames.
-          ws?.send(
-            JSON.stringify({
-              id: ++id,
-              method: "Page.screencastFrameAck",
-              params: { sessionId: msg.params.sessionId },
-            }),
-          )
+          if (msg.method === "Page.screencastFrame") {
+            frameSize = { w: msg.params.metadata?.deviceWidth ?? 0, h: msg.params.metadata?.deviceHeight ?? 0 }
+            setFrame(`data:image/jpeg;base64,${msg.params.data}`)
+            // Required, or Chromium stops sending frames.
+            send("Page.screencastFrameAck", { sessionId: msg.params.sessionId })
+            return
+          }
+          if (msg.method === "Page.frameNavigated" && !msg.params.frame?.parentId) {
+            followAgentUrl(msg.params.frame?.url ?? "")
+          }
         }
         ws.onerror = () => setStatus("agent browser unreachable")
         ws.onclose = () => setStatus("disconnected")
@@ -71,20 +85,68 @@ export function AgentBrowserView(props: { active: boolean }): JSX.Element {
     onCleanup(() => {
       cancelled = true
       try {
-        ws?.close()
+        socket?.close()
       } catch {
         // closing a socket that never opened is fine
       }
+      socket = undefined
     })
   })
 
+  /** Map a click on the letterboxed <img> to page coordinates. */
+  const toPage = (e: MouseEvent) => {
+    if (!img || !frameSize.w || !frameSize.h) return
+    const r = img.getBoundingClientRect()
+    const scale = Math.min(r.width / frameSize.w, r.height / frameSize.h)
+    const offX = (r.width - frameSize.w * scale) / 2
+    const offY = (r.height - frameSize.h * scale) / 2
+    const x = (e.clientX - r.left - offX) / scale
+    const y = (e.clientY - r.top - offY) / scale
+    if (x < 0 || y < 0 || x > frameSize.w || y > frameSize.h) return
+    return { x, y }
+  }
+
+  const mouse = (type: "mousePressed" | "mouseReleased", e: MouseEvent) => {
+    const p = toPage(e)
+    if (!p) return
+    send("Input.dispatchMouseEvent", { type, x: p.x, y: p.y, button: "left", clickCount: 1 })
+  }
+
   return (
-    <div class="flex-1 min-h-0 w-full flex items-center justify-center bg-v2-background-bg-deep overflow-hidden">
+    <div
+      class="flex-1 min-h-0 w-full flex items-center justify-center bg-v2-background-bg-deep overflow-hidden"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (!frame()) return
+        e.preventDefault()
+        if (e.key.length === 1) send("Input.insertText", { text: e.key })
+        else send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: e.key, windowsVirtualKeyCode: e.keyCode })
+      }}
+      onWheel={(e) => {
+        const p = toPage(e)
+        if (!p) return
+        send("Input.dispatchMouseEvent", {
+          type: "mouseWheel",
+          x: p.x,
+          y: p.y,
+          deltaX: -e.deltaX,
+          deltaY: -e.deltaY,
+        })
+      }}
+    >
       {frame() ? (
-        <img src={frame()} alt="Agent browser" class="max-h-full max-w-full object-contain" />
+        <img
+          ref={(el) => (img = el)}
+          src={frame()}
+          alt="Agent browser"
+          draggable={false}
+          class="max-h-full max-w-full object-contain cursor-pointer select-none"
+          onMouseDown={(e) => mouse("mousePressed", e)}
+          onMouseUp={(e) => mouse("mouseReleased", e)}
+        />
       ) : (
         <p class="px-4 text-center text-12-regular text-v2-text-tertiary">
-          {status() === "live" ? "waiting for the agent to navigate…" : status()}
+          {status() === "live" ? "waiting for a page…" : status()}
         </p>
       )}
     </div>
