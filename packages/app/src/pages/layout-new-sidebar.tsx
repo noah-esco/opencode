@@ -124,8 +124,6 @@ export function LayoutNewSidebar(): JSX.Element {
     const path = location.pathname // tracked, so this re-runs after navigation
 
     const showing = tabs.store.find((tab) => tabHref(tab).split("?")[0] === path)
-    // A draft belongs to either mode, so it never needs correcting.
-    if (showing && (showing.type === "draft" || modeOf(showing.sessionId) === mode)) return
 
     const newest = tabs.store
       .filter((tab) => tab.type !== "draft" && modeOf(tab.sessionId) === mode)
@@ -135,12 +133,20 @@ export function LayoutNewSidebar(): JSX.Element {
       }))
       .sort((a, b) => b.at - a.at)[0]?.tab
 
+    // A real session in this mode wins, even over a blank draft. Treating
+    // drafts as valid in every mode meant that once a draft was on screen,
+    // switching modes never moved you off it - so Chat -> Code never restored
+    // the code session.
     if (newest) {
+      if (showing && tabKey(showing) === tabKey(newest)) return
       tabs.select(newest)
       return
     }
-    // Nothing in this mode and no project to open a draft in: clear the stale
-    // view rather than leaving the other mode's session on screen.
+
+    // Nothing real in this mode: a blank draft is the right thing to show.
+    if (showing?.type === "draft") return
+    // No project to open a draft in - clear the stale view rather than leaving
+    // the other mode's session on screen.
     if (!newSession()) navigate("/")
   })
 
