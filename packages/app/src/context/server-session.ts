@@ -23,6 +23,7 @@ import { dropSessionCaches, pickSessionCacheEvictions, SESSION_CACHE_LIMIT } fro
 import { createV2SessionReducer, type V2SessionReduction } from "./server-session-v2-reducer"
 import type { ServerApi } from "@/utils/server"
 import { markTurnStart, markFirstToken, markTurnEnd } from "@/context/llm-metrics"
+import { followAgentUrl } from "@/pages/browser-pane"
 import { setSessionMode } from "@/context/session-mode"
 
 type MessageApi = ServerApi["message"]
@@ -1101,6 +1102,14 @@ export function createServerSession(
         return
       }
       case "message.part.updated": {
+        // Mirror agent browser navigations into the in-app pane.
+        {
+          const p = (event.properties as { part?: { type?: string; tool?: string; state?: { input?: Record<string, unknown> } } }).part
+          if (p?.type === "tool" && p.tool === "playwright_browser_navigate") {
+            const u = p.state?.input?.url
+            if (typeof u === "string") followAgentUrl(u)
+          }
+        }
         const part = (event.properties as { part: Part }).part
         if (SKIP_PARTS.has(part.type)) return
         const messages = data.message[part.sessionID]

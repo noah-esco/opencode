@@ -1,4 +1,4 @@
-import { createSignal, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, Show, type JSX } from "solid-js"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 
@@ -24,9 +24,29 @@ export const openBrowserAt = (next: string) => {
   setOpen(true)
 }
 
+/**
+ * Follow a navigation the AGENT made, so the pane shows the page it is actually
+ * working from. Does not force the pane open - if you closed it, it stays shut
+ * and simply catches up when you reopen it.
+ */
+export const followAgentUrl = (next: string) => {
+  if (!next || next === url()) return
+  setUrl(next)
+}
+
 export function BrowserPane(): JSX.Element {
   const [input, setInput] = createSignal(url())
   let view: HTMLElement | undefined
+
+  // <webview> does not reliably reload when its src attribute changes after
+  // mount, so drive it explicitly when the url signal moves (e.g. the agent
+  // navigated and followAgentUrl fired).
+  createEffect(() => {
+    const next = url()
+    setInput(next)
+    // @ts-expect-error webview element API
+    if (view?.getURL?.() !== next) view?.loadURL?.(next)
+  })
 
   const go = (raw: string) => {
     const trimmed = raw.trim()
