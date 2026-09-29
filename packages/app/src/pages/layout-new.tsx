@@ -2,6 +2,7 @@ import { createEffect, Suspense, type ParentProps } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DebugBar } from "@/components/debug-bar"
 import { LayoutNewSidebar } from "./layout-new-sidebar"
+import { BrowserPane } from "./browser-pane"
 import { TabsInfoPopup } from "@/components/help-button"
 import { Titlebar, type TitlebarUpdate } from "@/components/titlebar"
 import { usePlatform } from "@/context/platform"
@@ -44,6 +45,7 @@ export default function NewLayout(props: ParentProps) {
         <main class="flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-strict">
         <Suspense>{props.children}</Suspense>
         </main>
+        <BrowserPane />
       </div>
       {import.meta.env.DEV && state.debugTools && <DebugBar inline />}
       <TabsInfoPopup />

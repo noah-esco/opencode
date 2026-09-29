@@ -205,6 +205,10 @@ export function createMainWindow(id: string = randomUUID()) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Required for the in-app browser pane. The <webview> itself is given an
+      // isolated persist: partition and no node integration, so page content
+      // cannot reach the app renderer or the preload bridge.
+      webviewTag: true,
     },
   })
 

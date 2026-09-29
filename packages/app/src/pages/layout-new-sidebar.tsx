@@ -4,6 +4,7 @@ import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
 import { useServerSDK } from "@/context/server-sdk"
+import { toggleBrowser, browserOpen } from "./browser-pane"
 import { showToast } from "@/utils/toast"
 import { sessionTitle } from "@/utils/session-title"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
@@ -115,6 +116,15 @@ export function LayoutNewSidebar(): JSX.Element {
     >
       <div class="p-2 flex flex-col gap-2">
         <ModeSwitch />
+        <button
+          type="button"
+          onClick={toggleBrowser}
+          aria-pressed={browserOpen()}
+          class="flex items-center gap-2 rounded-md px-2 py-1.5 text-13-medium text-v2-text-secondary hover:bg-v2-background-bg-deep hover:text-v2-text-primary"
+        >
+          <IconV2 name="outline-square-arrow" size="small" />
+          <span>{browserOpen() ? "Hide browser" : "Browser"}</span>
+        </button>
         <button
           type="button"
           onClick={newSession}
