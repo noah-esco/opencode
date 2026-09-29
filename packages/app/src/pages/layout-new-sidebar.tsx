@@ -97,7 +97,10 @@ export function LayoutNewSidebar(): JSX.Element {
   const title = (tab: Tab) => {
     const persisted = tabs.info[tabKey(tab)]?.title?.trim()
     if (tab.type === "draft") return persisted || "New session"
-    const live = serverSync().session.get(tab.sessionId)?.title?.trim()
+    // peek(), not get(): the titlebar strip reads titles through peek inside a
+    // memo, and that is the read that tracks. get() returned a stale value, so
+    // rows kept showing the pre-title placeholder after the first message.
+    const live = serverSync().session.peek(tab.sessionId)?.title?.trim()
     return sessionTitle(live || persisted || "") || "Untitled session"
   }
   const current = (tab: Tab) => location.pathname === tabHref(tab).split("?")[0]
