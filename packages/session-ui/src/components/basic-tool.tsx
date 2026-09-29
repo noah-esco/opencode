@@ -326,15 +326,20 @@ export function GenericTool(props: {
   hideDetails?: boolean
   input?: Record<string, unknown>
 }) {
-  const i18n = useI18n()
+  // Tool rows are scaffolding, not content: a gear plus a small, weak label so
+  // they sit quieter than the answer text rather than louder than it. The
+  // server prefix (e.g. "playwright_") is noise once the icon says "tool".
+  const name = () => props.tool.replace(/^[a-z0-9]+_/i, "").replace(/_/g, " ")
 
   return (
     <BasicTool
-      icon="mcp"
+      icon="settings-gear"
       status={props.status}
       trigger={{
-        title: i18n.t("ui.basicTool.called", { tool: props.tool }),
+        title: name(),
+        titleClass: "text-12-regular text-text-weak",
         subtitle: label(props.input),
+        subtitleClass: "text-12-regular text-text-weak",
         args: args(props.input),
       }}
       hideDetails={props.hideDetails}
