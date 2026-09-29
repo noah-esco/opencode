@@ -1,5 +1,6 @@
-import { createEffect, createSignal, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, For, Show, type JSX } from "solid-js"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
+import { AgentBrowserView } from "./agent-browser-view"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 
 /**
@@ -16,6 +17,8 @@ import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
  */
 const [open, setOpen] = createSignal(false)
 const [url, setUrl] = createSignal("https://example.com")
+// "agent" shows the browser Playwright drives; "mine" is your own webview.
+const [mode, setMode] = createSignal<"agent" | "mine">("agent")
 
 export const browserOpen = open
 export const toggleBrowser = () => setOpen((v) => !v)
@@ -64,6 +67,24 @@ export function BrowserPane(): JSX.Element {
         data-component="browser-pane"
         class="w-[480px] shrink-0 h-full flex flex-col border-l border-v2-border-base bg-v2-background-bg-base"
       >
+        <div class="shrink-0 flex items-center gap-1 px-2 pt-2">
+          <For each={["agent", "mine"] as const}>
+            {(m) => (
+              <button
+                type="button"
+                onClick={() => setMode(m)}
+                aria-pressed={mode() === m}
+                classList={{
+                  "flex-1 rounded px-2 py-1 text-12-medium transition-colors": true,
+                  "bg-v2-background-bg-deep text-v2-text-primary": mode() === m,
+                  "text-v2-text-tertiary hover:text-v2-text-primary": mode() !== m,
+                }}
+              >
+                {m === "agent" ? "Agent view" : "My browser"}
+              </button>
+            )}
+          </For>
+        </div>
         <div class="shrink-0 flex items-center gap-1 p-2 border-b border-v2-border-base">
           <IconButtonV2
             type="button"
@@ -102,13 +123,15 @@ export function BrowserPane(): JSX.Element {
             onClick={() => setOpen(false)}
           />
         </div>
-        <webview
-          ref={(el: HTMLElement) => (view = el)}
-          src={url()}
-          partition="persist:agent-browser"
-          allowpopups={false}
-          class="flex-1 min-h-0 w-full bg-white"
-        />
+        <Show when={mode() === "mine"} fallback={<AgentBrowserView active={open() && mode() === "agent"} />}>
+          <webview
+            ref={(el: HTMLElement) => (view = el)}
+            src={url()}
+            partition="persist:agent-browser"
+            allowpopups={false}
+            class="flex-1 min-h-0 w-full bg-white"
+          />
+        </Show>
       </aside>
     </Show>
   )
