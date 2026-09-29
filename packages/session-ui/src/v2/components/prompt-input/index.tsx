@@ -226,8 +226,24 @@ export function PromptInputV2(props: PromptInputV2Props) {
                 variant="ghost-muted"
                 size="large"
                 disabled={state.mode === "shell" || props.voiceState?.() === "transcribing"}
-                aria-label={props.voiceState?.() === "recording" ? "Stop recording" : "Voice input"}
-                icon={<IconV2 name={props.voiceState?.() === "recording" ? "square" : "mic"} />}
+                aria-label={
+                  props.voiceState?.() === "recording"
+                    ? "Recording - click to stop and transcribe"
+                    : props.voiceState?.() === "transcribing"
+                      ? "Transcribing..."
+                      : "Voice input"
+                }
+                // Always the mic glyph: "square" is not a key in the v2 icon set
+                // (it only appears as a stroke-linecap value), so it fell back to
+                // a plus. State is shown with colour + motion instead.
+                class={
+                  props.voiceState?.() === "recording"
+                    ? "text-v2-icon-icon-critical animate-pulse"
+                    : props.voiceState?.() === "transcribing"
+                      ? "opacity-60"
+                      : undefined
+                }
+                icon={<IconV2 name="mic" />}
                 onClick={async () => {
                   const text = await props.onVoiceToggle?.()
                   if (!text) return
