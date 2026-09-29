@@ -138,7 +138,21 @@ export function LayoutNewSidebar(): JSX.Element {
     if (!tabs.ready()) return
 
     const showing = tabs.store.find((tab) => tabHref(tab).split("?")[0] === path)
+    // Not on a tab route at all (home / blank slate) - a legitimate place to be,
+    // so leave it alone. Without this, closing the last tab bounced straight
+    // back into a new draft.
+    if (!showing) return
+    // A draft is the user's own blank slate; never move them off it.
+    if (showing.type === "draft") return
 
+    // Never move off a session whose mode is still unknown: that is the load
+    // race, and navigating mid-load is what blanked the view.
+    const current = modeOf(showing.sessionId)
+    if (current === undefined) return
+    // Already in the right mode - nothing to do.
+    if (current === mode) return
+
+    // Newest by the session's own updated time; store order is insertion order.
     const newest = tabs.store
       .filter((tab) => tab.type !== "draft" && modeOf(tab.sessionId) === mode)
       .map((tab) => ({
@@ -147,25 +161,17 @@ export function LayoutNewSidebar(): JSX.Element {
       }))
       .sort((a, b) => b.at - a.at)[0]?.tab
 
-    // A real session in this mode wins, even over a blank draft. Treating
-    // drafts as valid in every mode meant that once a draft was on screen,
-    // switching modes never moved you off it - so Chat -> Code never restored
-    // the code session.
-    // Never move off a session whose mode is still unknown: that is the load
-    // race, and navigating mid-load is what blanked the view.
-    if (showing && showing.type !== "draft" && modeOf(showing.sessionId) === undefined) return
-
     if (newest) {
-      if (showing && tabKey(showing) === tabKey(newest)) return
+      if (tabKey(showing) === tabKey(newest)) return
       tabs.select(newest)
       return
     }
 
-    // Nothing real in this mode: a blank draft is the right thing to show.
-    if (showing?.type === "draft") return
-    // No project to open a draft in - clear the stale view rather than leaving
-    // the other mode's session on screen.
-    if (!newSession()) navigate("/")
+    // Nothing real in this mode. Go to the blank slate rather than CREATING a
+    // draft: creating one here fought the close button - you deleted the empty
+    // session, the effect immediately made another, and the screen flickered.
+    // Drafts are only created when you ask for one.
+    navigate("/")
   })
 
   const visible = createMemo(() =>
