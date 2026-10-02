@@ -60,6 +60,46 @@ can see. Check which one is live before editing.
   there. Adding logs to debug a renderer problem is a wasted round trip; throw,
   or surface state in the UI.
 
+## The sandbox
+
+`script/sandbox.ts` runs a change in an isolated git worktree and will not let
+it near your checkout until it has been proven. Use it for anything speculative,
+including changes an agent proposes autonomously.
+
+```
+bun run script/sandbox.ts new <slug>      # worktree + install + baseline (~3 min)
+bun run script/sandbox.ts gate <slug>     # typecheck + test the touched packages
+bun run script/sandbox.ts diff <slug>
+bun run script/sandbox.ts promote <slug>  # prints a cherry-pick; never merges
+bun run script/sandbox.ts discard <slug>
+```
+
+Worktrees live in `../opencode-sandboxes/<slug>` on branch `sandbox-<slug>` and
+cost about 2.3G each, so reuse a slug. `bun install --frozen-lockfile` in a fresh
+worktree takes ~15s, and workspace symlinks are relative so a worktree resolves
+its own sources, not the main checkout's.
+
+Two things about the gate are load-bearing:
+
+- **It judges regressions, not failures.** `packages/app` already fails one test
+  at base (`desktop-native.test.ts`, locale subtags). A gate that counted raw
+  failures would fail every change and get ignored, so `new` records a baseline
+  while the worktree is pristine and `gate` only counts what got worse.
+- **It compares individual tests, not packages.** Comparing at
+  `@opencode-ai/app#test` would excuse any new test failure in the package where
+  every customization lives, because that package is already red. Failing test
+  names are parsed from bun's `(fail)` lines and diffed run to run.
+
+A pass means it compiles and the tests that passed still pass. It is not a
+review, and `promote` deliberately refuses to merge — it prints the command.
+
+`script/*.ts` cannot be typechecked in this repo: root `package.json` has no
+`@types/bun` or `@types/node`, so `Bun`, `process` and `console` are all
+unresolved there and no turbo task covers `script/`. Scripts are covered by
+tests instead — export the pure helpers, guard the CLI with `import.meta.main`
+(the pattern `translate-app.ts` uses), and run them from the `script/` directory,
+since the root `bunfig.toml` blocks `bun test` at the repo root.
+
 ## Lessons paid for once already
 
 **Escalating special cases mean the design is wrong.** The code/chat mode switch
